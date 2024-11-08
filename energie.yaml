@@ -1,0 +1,245 @@
+utility_meter:
+  daily_energy_hc_bleue:
+    source: sensor.linky_bbrhcjb
+    name: Daily Energy (HC Bleue)
+    cycle: daily
+
+  daily_energy_hc_white:
+    source: sensor.linky_bbrhcjw
+    name: Daily Energy (HC White)
+    cycle: daily
+
+  daily_energy_hc_red:
+    source: sensor.linky_bbrhcjr
+    name: Daily Energy (HC Red)
+    cycle: daily
+
+  daily_energy_hp_bleue:
+    source: sensor.linky_bbrhpjb
+    name: Daily Energy (HP Bleue)
+    cycle: daily
+
+  daily_energy_hp_white:
+    source: sensor.linky_bbrhpjw
+    name: Daily Energy (HP White)
+    cycle: daily
+
+  daily_energy_hp_red:
+    source: sensor.linky_bbrhpjr
+    name: Daily Energy (HP Red)
+    cycle: daily
+
+  monthly_energy_hc_bleue:
+    source: sensor.linky_bbrhcjb
+    name: Monthly Energy (HC Bleue)
+    cycle: monthly
+
+  monthly_energy_hc_white:
+    source: sensor.linky_bbrhcjw
+    name: Monthly Energy (HC White)
+    cycle: monthly
+
+  monthly_energy_hc_red:
+    source: sensor.linky_bbrhcjr
+    name: Monthly Energy (HC Red)
+    cycle: monthly
+
+  monthly_energy_hp_bleue:
+    source: sensor.linky_bbrhpjb
+    name: Monthly Energy (HP Bleue)
+    cycle: monthly
+
+  monthly_energy_hp_white:
+    source: sensor.linky_bbrhpjw
+    name: Monthly Energy (HP White)
+    cycle: monthly
+
+  monthly_energy_hp_red:
+    source: sensor.linky_bbrhpjr
+    name: Monthly Energy (HP Red)
+    cycle: monthly
+
+  yearly_energy_hc_bleue:
+    source: sensor.linky_bbrhcjb
+    name: Yearly Energy (HC Bleue)
+    cycle: yearly
+
+  yearly_energy_hc_white:
+    source: sensor.linky_bbrhcjw
+    name: Yearly Energy (HC White)
+    cycle: yearly
+
+  yearly_energy_hc_red:
+    source: sensor.linky_bbrhcjr
+    name: Yearly Energy (HC Red)
+    cycle: yearly
+
+  yearly_energy_hp_bleue:
+    source: sensor.linky_bbrhpjb
+    name: Yearly Energy (HP Bleue)
+    cycle: yearly
+
+  yearly_energy_hp_white:
+    source: sensor.linky_bbrhpjw
+    name: Yearly Energy (HP White)
+    cycle: yearly
+
+  yearly_energy_hp_red:
+    source: sensor.linky_bbrhpjr
+    name: Yearly Energy (HP Red)
+    cycle: yearly
+
+  daily_litre:
+    source: sensor.watermeter_total_water_usage
+    name: Daily Litre
+    cycle: daily
+
+  
+input_number:
+  hp_energy_cost:
+    name: HP - Coût du Kwh
+    mode: box
+    min: 0
+    max: 100
+    unit_of_measurement: "€/kWh"
+    icon: mdi:currency-eur
+  
+  hc_energy_cost:
+    name: HC - Coût du Kwh
+    mode: box
+    min: 0
+    max: 100
+    unit_of_measurement: "€/kWh"
+    icon: mdi:currency-eur
+
+  yesterday_energy_cost:
+    name: Yesterday Energy Cost
+    mode: box
+    min: 0
+    max: 5000
+    unit_of_measurement: €
+    icon: mdi:currency-eur
+    
+template:
+  - sensor:
+    - name: 'Daily Energy Total KWh'
+      device_class: energy
+      unit_of_measurement: kWh
+      state: "{{ (states('sensor.daily_energy_hc_bleue') | float + states('sensor.daily_energy_hc_white') | float + states('sensor.daily_energy_hc_red') | float + states('sensor.daily_energy_hp_bleue') | float + states('sensor.daily_energy_hp_white') | float + states('sensor.daily_energy_hp_red') | float) | round(3) }}"
+          
+    - name: 'Daily Energy Cost HC'
+      device_class: monetary
+      unit_of_measurement: EUR
+      state: >
+        {{
+          (
+            (states('sensor.daily_energy_hc_bleue') | float * states('sensor.edf_tempo_price_blue_hc') | float) +
+            (states('sensor.daily_energy_hc_white') | float * states('sensor.edf_tempo_price_white_hc') | float) +
+            (states('sensor.daily_energy_hc_red') | float * states('sensor.edf_tempo_price_red_hc') | float)
+          ) | round(2)
+        }}
+      
+    - name: 'Daily Energy Cost HP'
+      device_class: monetary
+      unit_of_measurement: EUR
+      state: >
+        {{
+          (
+            (states('sensor.daily_energy_hp_bleue') | float * states('sensor.edf_tempo_price_blue_hp') | float) +
+            (states('sensor.daily_energy_hp_white') | float * states('sensor.edf_tempo_price_white_hp') | float) +
+            (states('sensor.daily_energy_hp_red') | float * states('sensor.edf_tempo_price_red_hp') | float)
+          ) | round(2)
+        }}
+
+    - name: 'Daily Energy Cost'
+      device_class: monetary
+      unit_of_measurement: EUR
+      state: >
+        {{
+          (
+            (states('sensor.daily_energy_hc_bleue') | float * states('sensor.edf_tempo_price_blue_hc') | float) +
+            (states('sensor.daily_energy_hp_bleue') | float * states('sensor.edf_tempo_price_blue_hp') | float) +
+            (states('sensor.daily_energy_hc_white') | float * states('sensor.edf_tempo_price_white_hc') | float) +
+            (states('sensor.daily_energy_hp_white') | float * states('sensor.edf_tempo_price_white_hp') | float) +
+            (states('sensor.daily_energy_hc_red') | float * states('sensor.edf_tempo_price_red_hc') | float) +
+            (states('sensor.daily_energy_hp_red') | float * states('sensor.edf_tempo_price_red_hp') | float)
+          ) | round(2)
+        }}
+
+    - name: 'Yearly Energy Cost HC'
+      device_class: monetary
+      unit_of_measurement: EUR
+      state: >
+        {{
+          (
+            (states('sensor.yearly_energy_hc_bleue') | float * states('sensor.edf_tempo_price_blue_hc') | float) +
+            (states('sensor.yearly_energy_hc_white') | float * states('sensor.edf_tempo_price_white_hc') | float) +
+            (states('sensor.yearly_energy_hc_red') | float * states('sensor.edf_tempo_price_red_hc') | float)
+          ) | round(2)
+        }}
+      
+    - name: 'Yearly Energy Cost HP'
+      device_class: monetary
+      unit_of_measurement: EUR
+      state: >
+        {{
+          (
+            (states('sensor.yearly_energy_hp_bleue') | float * states('sensor.edf_tempo_price_blue_hp') | float) +
+            (states('sensor.yearly_energy_hp_white') | float * states('sensor.edf_tempo_price_white_hp') | float) +
+            (states('sensor.yearly_energy_hp_red') | float * states('sensor.edf_tempo_price_red_hp') | float)
+          ) | round(2)
+        }}
+      
+    - name: 'Monthly Energy Cost HC'
+      device_class: monetary
+      unit_of_measurement: EUR
+      state: >
+        {{
+          (
+            (states('sensor.monthly_energy_hc_bleue') | float * states('sensor.edf_tempo_price_blue_hc') | float) +
+            (states('sensor.monthly_energy_hc_white') | float * states('sensor.edf_tempo_price_white_hc') | float) +
+            (states('sensor.monthly_energy_hc_red') | float * states('sensor.edf_tempo_price_red_hc') | float)
+          ) | round(2)
+        }}
+      
+    - name: 'Monthly Energy Cost HP'
+      device_class: monetary
+      unit_of_measurement: EUR
+      state: >
+        {{
+          (
+            (states('sensor.monthly_energy_hp_bleue') | float * states('sensor.edf_tempo_price_blue_hp') | float) +
+            (states('sensor.monthly_energy_hp_white') | float * states('sensor.edf_tempo_price_white_hp') | float) +
+            (states('sensor.monthly_energy_hp_red') | float * states('sensor.edf_tempo_price_red_hp') | float)
+          ) | round(2)
+        }}
+      
+    - name: 'Total Monthly Energy Cost'
+      device_class: monetary
+      unit_of_measurement: EUR
+      state: >
+        {{
+          (
+            (states('sensor.monthly_energy_hc_bleue') | float * states('sensor.edf_tempo_price_blue_hc') | float) +
+            (states('sensor.monthly_energy_hc_white') | float * states('sensor.edf_tempo_price_white_hc') | float) +
+            (states('sensor.monthly_energy_hc_red') | float * states('sensor.edf_tempo_price_red_hc') | float) +
+            (states('sensor.monthly_energy_hp_bleue') | float * states('sensor.edf_tempo_price_blue_hp') | float) +
+            (states('sensor.monthly_energy_hp_white') | float * states('sensor.edf_tempo_price_white_hp') | float) +
+            (states('sensor.monthly_energy_hp_red') | float * states('sensor.edf_tempo_price_red_hp') | float)
+          ) | round(2)
+        }}
+      
+    - name: 'Total Yearly Energy Cost'
+      device_class: monetary
+      unit_of_measurement: EUR
+      state: >
+        {{
+          (
+            (states('sensor.yearly_energy_hc_bleue') | float * states('sensor.edf_tempo_price_blue_hc') | float) +
+            (states('sensor.yearly_energy_hc_white') | float * states('sensor.edf_tempo_price_white_hc') | float) +
+            (states('sensor.yearly_energy_hc_red') | float * states('sensor.edf_tempo_price_red_hc') | float) +
+            (states('sensor.yearly_energy_hp_bleue') | float * states('sensor.edf_tempo_price_blue_hp') | float) +
+            (states('sensor.yearly_energy_hp_white') | float * states('sensor.edf_tempo_price_white_hp') | float) +
+            (states('sensor.yearly_energy_hp_red') | float * states('sensor.edf_tempo_price_red_hp') | float)
+          ) | round(2)
+        }}
