@@ -1,0 +1,200 @@
+blueprint:
+  name: Gestion du chauffage avec jours Tempo et présence
+  description: >
+    Contrôle du chauffage d'une pièce en fonction de la présence, des jours Tempo (EDF),
+    et des horaires pour la journée, la soirée et la nuit.
+  domain: automation
+  input:
+    climate_entity:
+      name: Thermostat
+      description: Entité du thermostat de la pièce
+      selector:
+        entity:
+          domain: climate
+    presence_group:
+      name: Groupe de présence
+      description: Entité représentant la présence des occupants
+      default: group.all_person
+      selector:
+        entity:
+          domain: group
+    tempo_sensor:
+      name: Capteur EDF Tempo
+      description: Entité représentant la couleur actuelle Tempo
+      default: sensor.rte_tempo_couleur_actuelle
+      selector:
+        entity:
+          domain: sensor
+    temp_presence:
+      name: Température en cas de présence (hors jours rouges)
+      default: 18.5
+      selector:
+        number:
+          min: 10
+          max: 30
+          step: 0.5
+          unit_of_measurement: "°C"
+    temp_absence:
+      name: Température en cas d'absence
+      default: 15
+      selector:
+        number:
+          min: 10
+          max: 30
+          step: 0.5
+          unit_of_measurement: "°C"
+    temp_red_day:
+      name: Température jours rouges
+      default: 16
+      selector:
+        number:
+          min: 10
+          max: 30
+          step: 0.5
+          unit_of_measurement: "°C"
+    temp_evening:
+      name: Température soirée (entre début soirée et début nuit)
+      default: 19
+      selector:
+        number:
+          min: 10
+          max: 30
+          step: 0.5
+          unit_of_measurement: "°C"
+    temp_night:
+      name: Température nuit (entre début nuit et début journée)
+      default: 16.5
+      selector:
+        number:
+          min: 10
+          max: 30
+          step: 0.5
+          unit_of_measurement: "°C"
+    default_temp:
+      name: Température par défaut
+      description: Température appliquée si aucune condition n'est remplie
+      default: 17
+      selector:
+        number:
+          min: 10
+          max: 30
+          step: 0.5
+          unit_of_measurement: "°C"
+    time_morning:
+      name: Début journée
+      default: "08:00"
+      selector:
+        time:
+    time_evening:
+      name: Début soirée
+      default: "19:00"
+      selector:
+        time:
+    time_night:
+      name: Début nuit
+      default: "23:00"
+      selector:
+        time:
+
+trigger:
+  - platform: state
+    entity_id: !input presence_group
+  - platform: state
+    entity_id: !input tempo_sensor
+  - platform: time
+    at:
+      - !input time_night
+      - !input time_morning
+      - !input time_evening
+
+condition: []
+
+action:
+  - choose:
+      # Début de la journée (après time_morning)
+      - conditions:
+          - condition: state
+            entity_id: group.all_person
+            state: "home"
+          - condition: time
+            after: !input time_morning
+            before: !input time_evening
+        sequence:
+          - service: climate.set_temperature
+            data:
+              entity_id: !input climate_entity
+              temperature: !input default_temp
+
+      # Soirée (entre time_evening et time_night)
+      - conditions:
+          - condition: state
+            entity_id: group.all_person
+            state: "home"
+          - condition: time
+            after: !input time_evening
+            before: !input time_night
+        sequence:
+          - service: climate.set_temperature
+            data:
+              entity_id: !input climate_entity
+              temperature: !input temp_evening
+
+      # Nuit (entre time_night et time_morning)
+      - conditions:
+          - condition: state
+            entity_id: group.all_person
+            state: "home"
+          - condition: time
+            after: !input time_night
+            before: !input time_morning
+        sequence:
+          - service: climate.set_temperature
+            data:
+              entity_id: !input climate_entity
+              temperature: !input temp_night
+
+      # Présence (hors jours rouges)
+      - conditions:
+          - condition: state
+            entity_id: !input presence_group
+            state: "home"
+          - condition: template
+            value_template: "{{ states('!input tempo_sensor') != 'rouge' }}"
+        sequence:
+          - service: climate.set_temperature
+            data:
+              entity_id: !input climate_entity
+              temperature: !input temp_presence
+
+      # Absence détectée
+      - conditions:
+          - condition: state
+            entity_id: !input presence_group
+            state: "not_home"
+        sequence:
+          - service: climate.set_temperature
+            data:
+              entity_id: !input climate_entity
+              temperature: !input temp_absence
+
+      # Jour rouge
+      - conditions:
+          - condition: state
+            entity_id: !input presence_group
+            state: "home"
+          - condition: template
+            value_template: "{{ states('!input tempo_sensor') == 'rouge' }}"
+        sequence:
+          - service: climate.set_temperature
+            data:
+              entity_id: !input climate_entity
+              temperature: !input temp_red_day
+
+    # Valeur par défaut
+    default:
+      - service: climate.set_temperature
+        data:
+          entity_id: !input climate_entity
+          temperature: !input default_temp
+
+mode: single
