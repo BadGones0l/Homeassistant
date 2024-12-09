@@ -28,13 +28,13 @@ blueprint:
           domain: sensor
     window_sensors:
       name: Capteurs de fenêtre
-      description: Entité ou groupe représentant l'état des fenêtres
+      description: Entité représentant l'état de la fenêtres
       selector:
         entity:
           domain: binary_sensor
     notification_service:
       name: Service de notification
-      description: "Service utilisé pour envoyer les notifications (ex: mobile_app, notify.group, etc.)"
+      description: "Service utilisé pour envoyer les notifications"
       default: notify.notify
       selector:
         text:
@@ -151,7 +151,7 @@ action:
             target: !input climate_entities
           - service: !input notification_service
             data:
-              message: "Chauffage désactivé : une ou plusieurs fenêtres sont ouvertes."
+              message: "Chauffage désactivé : Fenetre ouverte."
 
       # Jour rouge - appliquer température réduite + notification
       - conditions:
