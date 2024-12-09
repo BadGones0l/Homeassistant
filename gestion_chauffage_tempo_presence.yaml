@@ -1,8 +1,8 @@
 blueprint:
-  name: Gestion du chauffage avec jours Tempo, présence, fenêtres et multiples thermostats
+  name: Gestion avancée du chauffage avec EDF Tempo, présence, fenêtres et notifications
   description: >
     Contrôle des chauffages de plusieurs pièces en fonction de la présence, des jours Tempo (EDF),
-    des horaires pour la journée, la soirée et la nuit, et l'état des fenêtres.
+    des horaires (réveil, journée, soirée, nuit), de l'état des fenêtres et avec notifications.
   domain: automation
   input:
     climate_entities:
@@ -32,6 +32,12 @@ blueprint:
       selector:
         entity:
           domain: binary_sensor
+    notification_service:
+      name: Service de notification
+      description: "Service utilisé pour envoyer les notifications (ex: mobile_app, notify.group, etc.)"
+      default: notify.notify
+      selector:
+        text:
     temp_presence:
       name: Température en cas de présence (hors jours rouges)
       default: 18.5
@@ -135,7 +141,7 @@ condition: []
 
 action:
   - choose:
-      # Fenêtres ouvertes - désactiver le chauffage
+      # Fenêtres ouvertes - désactiver le chauffage + notification
       - conditions:
           - condition: state
             entity_id: !input window_sensors
@@ -143,14 +149,31 @@ action:
         sequence:
           - service: climate.turn_off
             target: !input climate_entities
+          - service: !input notification_service
+            data:
+              message: "Chauffage désactivé : une ou plusieurs fenêtres sont ouvertes."
+
+      # Jour rouge - appliquer température réduite + notification
+      - conditions:
+          - condition: state
+            entity_id: !input tempo_sensor
+            state: "Rouge"
+          - condition: state
+            entity_id: !input window_sensors
+            state: "off"
+        sequence:
+          - service: climate.turn_on
+            target: !input climate_entities
+          - service: climate.set_temperature
+            data:
+              temperature: !input temp_red_day
+            target: !input climate_entities
+          - service: !input notification_service
+            data:
+              message: "Jour rouge EDF : température réduite à {{ temp_red_day }}°C."
 
       # Réveil (entre time_wake et time_morning)
       - conditions:
-          - condition: not
-            conditions:
-              - condition: state
-                entity_id: !input tempo_sensor
-                state: "Rouge"
           - condition: state
             entity_id: !input presence_group
             state: "home"
@@ -170,11 +193,6 @@ action:
 
       # Journée (entre time_morning et time_evening)
       - conditions:
-          - condition: not
-            conditions:
-              - condition: state
-                entity_id: !input tempo_sensor
-                state: "Rouge"
           - condition: state
             entity_id: !input presence_group
             state: "home"
@@ -194,11 +212,6 @@ action:
 
       # Soirée (entre time_evening et time_night)
       - conditions:
-          - condition: not
-            conditions:
-              - condition: state
-                entity_id: !input tempo_sensor
-                state: "Rouge"
           - condition: state
             entity_id: !input presence_group
             state: "home"
@@ -218,11 +231,6 @@ action:
 
       # Nuit (entre time_night et time_morning)
       - conditions:
-          - condition: not
-            conditions:
-              - condition: state
-                entity_id: !input tempo_sensor
-                state: "Rouge"
           - condition: state
             entity_id: !input presence_group
             state: "home"
@@ -240,41 +248,17 @@ action:
               temperature: !input temp_night
             target: !input climate_entities
 
-      # Absence
+      # Absence - appliquer température réduite
       - conditions:
-          - condition: not
-            conditions:
-              - condition: state
-                entity_id: !input tempo_sensor
-                state: "Rouge"
           - condition: state
             entity_id: !input presence_group
             state: "not_home"
-          - condition: state
-            entity_id: !input window_sensors
-            state: "off"
         sequence:
           - service: climate.turn_on
             target: !input climate_entities
           - service: climate.set_temperature
             data:
               temperature: !input temp_absence
-            target: !input climate_entities
-
-      # Jour rouge
-      - conditions:
-          - condition: state
-            entity_id: !input tempo_sensor
-            state: "Rouge"
-          - condition: state
-            entity_id: !input window_sensors
-            state: "off"
-        sequence:
-          - service: climate.turn_on
-            target: !input climate_entities
-          - service: climate.set_temperature
-            data:
-              temperature: !input temp_red_day
             target: !input climate_entities
 
     # Valeur par défaut
