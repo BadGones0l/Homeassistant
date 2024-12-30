@@ -1,5 +1,5 @@
 blueprint:
-  name: Gestion avancée du chauffage avec EDF Tempo, présence, fenêtres et notifications
+  name: Gestion avancée du chauffage avec EDF Tempo, présence, fenêtres et notifications (Preset Modes)
   description: >
     Contrôle des chauffages de plusieurs pièces en fonction de la présence, des jours Tempo (EDF),
     des horaires (réveil, journée, soirée, nuit), de l'état des fenêtres et avec notifications.
@@ -28,7 +28,7 @@ blueprint:
           domain: sensor
     window_sensors:
       name: Capteurs de fenêtre
-      description: Entité représentant l'état de la fenêtres
+      description: Entité représentant l'état des fenêtres
       selector:
         entity:
           domain: binary_sensor
@@ -38,70 +38,72 @@ blueprint:
       default: notify.notify
       selector:
         text:
-    temp_presence:
-      name: Température en cas de présence (hors jours rouges)
-      default: 18.5
+    notification_title:
+      name: Titre de la notification
+      description: "Titre à utiliser dans les notifications"
+      default: "Chauffage"
       selector:
-        number:
-          min: 10
-          max: 30
-          step: 0.5
-          unit_of_measurement: "°C"
-    temp_wake:
-      name: Température au réveil
-      default: 18.5
+        text:
+    preset_presence:
+      name: Mode en cas de présence (hors jours rouges)
       selector:
-        number:
-          min: 10
-          max: 30
-          step: 0.5
-          unit_of_measurement: "°C"
-    temp_evening:
-      name: Température soirée (entre début soirée et début nuit)
-      default: 19
+        select:
+          options:
+            - none
+            - frost
+            - eco
+            - comfort
+            - boost
+    preset_wake:
+      name: Mode au réveil
       selector:
-        number:
-          min: 10
-          max: 30
-          step: 0.5
-          unit_of_measurement: "°C"
-    temp_night:
-      name: Température nuit (entre début nuit et début journée)
-      default: 16.5
+        select:
+          options:
+            - none
+            - frost
+            - eco
+            - comfort
+            - boost
+    preset_evening:
+      name: Mode soirée (entre début soirée et début nuit)
       selector:
-        number:
-          min: 10
-          max: 30
-          step: 0.5
-          unit_of_measurement: "°C"
-    temp_absence:
-      name: Température en cas d'absence
-      default: 15
+        select:
+          options:
+            - none
+            - frost
+            - eco
+            - comfort
+            - boost
+    preset_night:
+      name: Mode nuit (entre début nuit et début journée)
       selector:
-        number:
-          min: 10
-          max: 30
-          step: 0.5
-          unit_of_measurement: "°C"
-    temp_red_day:
-      name: Température jours rouges
-      default: 16
+        select:
+          options:
+            - none
+            - frost
+            - eco
+            - comfort
+            - boost
+    preset_absence:
+      name: Mode en cas d'absence
       selector:
-        number:
-          min: 10
-          max: 30
-          step: 0.5
-          unit_of_measurement: "°C"
-    default_temp:
-      name: Température par défaut
-      description: Température appliquée si aucune condition n'est remplie
-      default: 17
+        select:
+          options:
+            - none
+            - frost
+            - eco
+            - comfort
+            - boost
+    preset_red_day:
+      name: Mode jours rouges
       selector:
-        number:
-          min: 10
-          max: 30
-          step: 0.5
-          unit_of_measurement: "°C"
+        select:
+          options:
+            - none
+            - frost
+            - eco
+            - comfort
+            - boost
     time_wake:
       name: Réveil
       default: "06:15"
@@ -151,9 +153,10 @@ action:
             target: !input climate_entities
           - service: !input notification_service
             data:
-              message: "Chauffage désactivé : Fenetre ouverte."
-
-      # Jour rouge - appliquer température réduite + notification
+              title: !input notification_title
+              message: "Chauffage désactivé : Fenêtre ouverte."
+          
+      # Jour rouge - appliquer mode réduit + notification unique par jour
       - conditions:
           - condition: state
             entity_id: !input tempo_sensor
@@ -161,18 +164,30 @@ action:
           - condition: state
             entity_id: !input window_sensors
             state: "off"
+          - condition: template
+            value_template: >
+              {% set last_triggered = this.last_triggered %}
+              {% if last_triggered is not none %}
+                {{ (now() - last_triggered).days > 0 }}
+              {% else %}
+                true
+              {% endif %}
         sequence:
+          - variables:
+              preset_red: !input preset_red_day
           - service: climate.turn_on
             target: !input climate_entities
-          - service: climate.set_temperature
+          - service: climate.set_preset_mode
             data:
-              temperature: !input temp_red_day
+              preset_mode: !input preset_red_day
             target: !input climate_entities
           - service: !input notification_service
             data:
-              message: "Jour rouge EDF : température réduite à {{ temp_red_day }}°C."
+              title: !input notification_title
+              message: >
+                Jour rouge EDF : mode réduit appliqué ({{ preset_red }}).
 
-      # Réveil (entre time_wake et time_morning)
+      # Réveil (entre time_wake et time_morning) - notification changement d'état
       - conditions:
           - condition: state
             entity_id: !input presence_group
@@ -186,12 +201,16 @@ action:
         sequence:
           - service: climate.turn_on
             target: !input climate_entities
-          - service: climate.set_temperature
+          - service: climate.set_preset_mode
             data:
-              temperature: !input temp_wake
+              preset_mode: !input preset_wake
             target: !input climate_entities
+          - service: !input notification_service
+            data:
+              title: !input notification_title
+              message: "Changement d'état : mode réveil appliqué."
 
-      # Journée (entre time_morning et time_evening)
+      # Journée (entre time_morning et time_evening) - notification changement d'état
       - conditions:
           - condition: state
             entity_id: !input presence_group
@@ -205,12 +224,16 @@ action:
         sequence:
           - service: climate.turn_on
             target: !input climate_entities
-          - service: climate.set_temperature
+          - service: climate.set_preset_mode
             data:
-              temperature: !input temp_presence
+              preset_mode: !input preset_presence
             target: !input climate_entities
+          - service: !input notification_service
+            data:
+              title: !input notification_title
+              message: "Changement d'état : mode journée appliqué."
 
-      # Soirée (entre time_evening et time_night)
+      # Soirée (entre time_evening et time_night) - notification changement d'état
       - conditions:
           - condition: state
             entity_id: !input presence_group
@@ -224,12 +247,16 @@ action:
         sequence:
           - service: climate.turn_on
             target: !input climate_entities
-          - service: climate.set_temperature
+          - service: climate.set_preset_mode
             data:
-              temperature: !input temp_evening
+              preset_mode: !input preset_evening
             target: !input climate_entities
+          - service: !input notification_service
+            data:
+              title: !input notification_title
+              message: "Changement d'état : mode soirée appliqué."
 
-      # Nuit (entre time_night et time_morning)
+      # Nuit (entre time_night et time_morning) - notification changement d'état
       - conditions:
           - condition: state
             entity_id: !input presence_group
@@ -243,12 +270,16 @@ action:
         sequence:
           - service: climate.turn_on
             target: !input climate_entities
-          - service: climate.set_temperature
+          - service: climate.set_preset_mode
             data:
-              temperature: !input temp_night
+              preset_mode: !input preset_night
             target: !input climate_entities
+          - service: !input notification_service
+            data:
+              title: !input notification_title
+              message: "Changement d'état : mode nuit appliqué."
 
-      # Absence - appliquer température réduite
+      # Absence - appliquer mode réduit + notification changement d'état
       - conditions:
           - condition: state
             entity_id: !input presence_group
@@ -256,18 +287,15 @@ action:
         sequence:
           - service: climate.turn_on
             target: !input climate_entities
-          - service: climate.set_temperature
+          - service: climate.set_preset_mode
             data:
-              temperature: !input temp_absence
+              preset_mode: !input preset_absence
             target: !input climate_entities
+          - service: !input notification_service
+            data:
+              title: !input notification_title
+              message: "Absence détectée : mode réduit appliqué."
 
-    # Valeur par défaut
-    default:
-      - service: climate.turn_on
-        target: !input climate_entities
-      - service: climate.set_temperature
-        data:
-          temperature: !input default_temp
-        target: !input climate_entities
+    default: []
 
 mode: single
