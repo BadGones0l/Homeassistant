@@ -164,14 +164,6 @@ action:
           - condition: state
             entity_id: !input window_sensors
             state: "off"
-          - condition: template
-            value_template: >
-              {% set last_triggered = this.last_triggered %}
-              {% if last_triggered is not none %}
-                {{ (now() - last_triggered).days > 0 }}
-              {% else %}
-                true
-              {% endif %}
         sequence:
           - variables:
               preset_red: !input preset_red_day
